@@ -8,6 +8,7 @@ just one C++ file.
 ## Features
 
 - Playable blackjack CLI game
+- Input checking
 - **Real simulated 52 card deck that makes card counting possible**
 
 ### Roadmap

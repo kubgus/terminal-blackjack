@@ -1,7 +1,9 @@
 #include <cctype>
 #include <cstdlib>
 #include <ctime>
+#include <functional>
 #include <iostream>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -36,6 +38,30 @@ inline std::string ansi_color(Color color) {
 
 inline std::string colorize(std::string text, Color color) {
     return ansi_color(color) + text + ansi_color(RESET);
+}
+
+template <typename T>
+T in(
+    std::string prompt,
+    std::function<bool(T)> validate = [](T){ return true; },
+    std::string error_msg = "Unexpected input!"
+) {
+    T variable;
+
+    while (true) {
+        std::cout << prompt << " ";
+        std::cin >> variable;
+
+        if (std::cin.fail()) {
+            std::cin.clear();
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            std::cout << colorize("Invalid input! Try again!", RED) << std::endl;
+        } else if (!validate(variable)) {
+            std::cout << colorize(error_msg + " Try again!", RED) << std::endl;
+        } else break;
+    }
+
+    return variable;
 }
 
 enum Suit {
@@ -254,19 +280,13 @@ void start_round(int& balance, Deck& deck) {
     std::cout << std::endl;
     std::cout << colorize("Current balance: ", YELLOW) << balance << std::endl;
 
-    int bet;
-    std::cout << colorize("Place bet: ", MAGENTA);
-    std::cin >> bet;
-
-    if (bet < 1) {
-        std::cout << "Minimum bet is 1" << std::endl;
-        return;
-    }
-
-    if (bet > balance) {
-        std::cout << "Insufficient balance!" << std::endl;
-        return;
-    }
+    int bet = in<int>(
+        colorize("Place bet:", MAGENTA),
+        [balance](int b) {
+            return b > 0 && b <= balance;
+        },
+        "Invalid bet!"
+    );
 
     Hand dealer_hand = { "Dealer", deck.draw(2) };
     Hand player_hand = { player_name, deck.draw(2) };
@@ -285,9 +305,13 @@ void start_round(int& balance, Deck& deck) {
 
         std::cout << std::endl;
 
-        std::cout << colorize("What will you do? (h/s): ", MAGENTA);
-        char action;
-        std::cin >> action;
+        char action = in<char>(
+            colorize("What will you do? (h/s): ", MAGENTA),
+            [](char act) {
+                return act == 'h' || act == 's';
+            },
+            "You must either hit or stand!"
+        );
 
         std::cout << std::endl;
 
@@ -365,9 +389,13 @@ int main() {
     player_name = getenv("USER");
     player_name[0] = toupper(player_name[0]); // capitalize first letter
 
-    int balance;
-    std::cout << colorize("Starting balance: ", YELLOW);
-    std::cin >> balance;
+    int balance = in<int>(
+        colorize("Starting balance:", YELLOW),
+        [](int bal) {
+            return bal > 0;
+        },
+        "Starting balance must be greater than 0!"
+    );
 
     Deck deck;
     deck.shuffle();
@@ -377,9 +405,8 @@ int main() {
         start_round(balance, deck);
 
         std::cout << std::endl;
-        std::cout << colorize("Play again? (y/n): ", BLUE);
-        char action;
-        std::cin >> action;
+
+        char action = in<char>(colorize("Play again? (y/n):", MAGENTA));
 
         switch (tolower(action)) {
             case'y':
