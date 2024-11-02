@@ -5,6 +5,16 @@
 This is a simple blackjack simulator for the terminal coded in
 just one C++ file.
 
+## Features
+
+- Playable blackjack CLI game
+- **Real simulated 52 card deck that makes card counting possible**
+
+### Roadmap
+
+- [ ] Advanced Blackjack features like splitting, insurance, double-down etc.
+- [ ] Save and load game
+
 ## Install
 
 This will install the executable in `/usr/local/bin`.
@@ -25,7 +35,7 @@ blackjack
 
 ## Build
 
-This will build the executable and run it.
+This will build and run the executable.
 
 ```bash
 g++ -o blackjack main.cpp
