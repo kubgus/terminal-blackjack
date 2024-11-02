@@ -29,8 +29,7 @@ sh scripts/INSTALL.sh
 Or install manually:
 
 ```bash
-sudo g++ -o /usr/local/bin/blackjack main.cpp
-blackjack
+sudo g++ src/main.cpp -o /usr/local/bin/blackjack
 ```
 
 ## Build
@@ -38,7 +37,7 @@ blackjack
 This will build and run the executable.
 
 ```bash
-g++ -o blackjack main.cpp
+g++ src/main.cpp -o blackjack
 ./blackjack
 ```
 
