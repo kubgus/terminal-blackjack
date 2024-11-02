@@ -34,7 +34,7 @@ g++ -o blackjack main.cpp
 
 ## Screenshots
 
-![Screenshot of terminal-blackjack](https://github.com/kubgus/terminal-blackjack/raw/main/screenshots/1.png)
+<img src="https://github.com/kubgus/terminal-blackjack/raw/main/screenshots/1.png" alt="Screenshot of terminal-blackjack" width="512">
 
 ## License
 
