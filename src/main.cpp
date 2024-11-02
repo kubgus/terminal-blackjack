@@ -1,4 +1,5 @@
 #include <cctype>
+#include <cmath>
 #include <cstdlib>
 #include <ctime>
 #include <functional>
@@ -193,10 +194,15 @@ struct Hand {
 
     int to_value() const {
         int value = 0;
+        int ace_count = 0;
         for (Card card : cards) {
             int card_value = rank_to_value(card.rank);
-            if (card.rank == A && value + card_value > WINNING_HAND_VALUE) card_value = 1;
-            value += card_value;
+            if (card.rank == A) ace_count++;
+            else value += card_value;
+        }
+        for (int i = 0; i < ace_count; i++) {
+            if (value + 11 <= WINNING_HAND_VALUE) value += 11;
+            else value += 1;
         }
         return value;
     }
@@ -276,6 +282,12 @@ private:
     int _draw_index = 0;
 };
 
+void payout(int& balance, int bet, double rate = 1) {
+    int payout = ceil(bet * rate);
+    std::cout << colorize((payout < 0 ? "" : "+") + std::to_string(payout), YELLOW) << std::endl;
+    balance += payout;
+}
+
 void start_round(int& balance, Deck& deck) {
     std::cout << std::endl;
     std::cout << colorize("Current balance: ", YELLOW) << balance << std::endl;
@@ -292,23 +304,49 @@ void start_round(int& balance, Deck& deck) {
     Hand player_hand = { player_name, deck.draw(2) };
 
     std::cout << std::endl;
+    dealer_hand.print(1);
+    player_hand.print();
 
     bool running = true;
+
+    bool purchased_insurance = false;
+    bool payout_insurance = false;
+    if (dealer_hand.cards[0].rank == A) {
+        std::cout << std::endl;
+        char action = in<char>(
+                colorize("Would you like to purchase insurance? (y/n):", MAGENTA),
+                [balance, bet](char act) {
+                if (act == 'y') return balance > ceil(bet * 1.5);
+                return act == 'n';
+                },
+                "You must choose a valid option with sufficient balance!"
+                );
+
+        if (action == 'y') {
+            purchased_insurance = true;
+            if (rank_to_value(dealer_hand.cards[1].rank) == 10)
+                payout_insurance = true;
+        }
+    }
+
+    bool natural_21 = false;
+    if (player_hand.is_blackjack()) {
+        running = false;
+        natural_21 = true;
+    }
+
     while (running) {
         if (player_hand.should_end()) {
             running = false;
             break;
         }
 
-        dealer_hand.print(1);
-        player_hand.print();
-
         std::cout << std::endl;
 
         char action = in<char>(
-            colorize("What will you do? (h/s/d): ", MAGENTA),
+            colorize("What will you do? (h/s/d):", MAGENTA),
             [balance, bet](char act) {
-                if (act == 'd') return balance > bet * 2;
+                if (act == 'd') return balance >= bet * 2;
                 return act == 'h' || act == 's';
             },
             "You must either hit, stand, or double down with sufficient balance!"
@@ -339,36 +377,54 @@ void start_round(int& balance, Deck& deck) {
                 }
         }
 
+       std::cout << std::endl;
+       dealer_hand.print(running ? 1 : -1);
+       player_hand.print();
+    }
+
+    if (purchased_insurance) {
+        if (payout_insurance) {
+            std::cout << colorize("Dealer got a blackjack! You won the insurance!", GREEN) << std::endl;
+            payout(balance, bet, 0.5);
+        } else {
+            std::cout << colorize("You lost the insurance!", RED) << std::endl;
+            payout(balance, bet, 0.5);
+        }
         std::cout << std::endl;
     }
 
-    if (player_hand.should_end()) {
-        dealer_hand.print();
+    if (natural_21) {
+        std::cout << std::endl;
+        if (dealer_hand.is_blackjack()) {
+            dealer_hand.print();
+            player_hand.print();
+            std::cout << colorize("Both players got a blackjack! It's a tie!", CYAN) << std::endl;
+            return;
+        }
+        dealer_hand.print(1);
         player_hand.print();
+        std::cout << colorize("You got a blackjack! (3:2)", GREEN) << std::endl;
+        payout(balance, bet, 0.5);
+        return;
+    }
 
-        if (player_hand.is_blackjack()) {
-            std::cout << colorize("You got a blackjack!", GREEN) << std::endl;
-            balance += bet;
-            return;
-        }
-
-        if (player_hand.is_busted()) {
-            std::cout << colorize("You busted!", RED) << std::endl;
-            balance -= bet;
-            return;
-        }
+    if (player_hand.is_busted()) {
+        std::cout << colorize("You busted!", RED) << std::endl;
+        payout(balance, -bet);
+        return;
     }
 
     while (dealer_hand.to_value() < 17) {
         dealer_hand.push(deck.draw());
     }
 
+    std::cout << std::endl;
     dealer_hand.print();
     player_hand.print();
 
     if (dealer_hand.is_busted()) {
         std::cout << colorize("Dealer busted! You win!", GREEN) << std::endl;
-        balance += bet;
+        payout(balance, bet);
         return;
     }
 
@@ -377,7 +433,7 @@ void start_round(int& balance, Deck& deck) {
 
     if (dealer_win_diff < player_win_diff) {
         std::cout << colorize("You lose!", RED) << std::endl;
-        balance -= bet;
+        payout(balance, -bet);
         return;
     }
 
@@ -387,7 +443,7 @@ void start_round(int& balance, Deck& deck) {
     }
 
     std::cout << colorize("You win!", GREEN) << std::endl;
-    balance += bet;
+    payout(balance, bet);
 }
 
 int main() {

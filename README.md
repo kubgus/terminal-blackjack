@@ -10,10 +10,11 @@ just one C++ file.
 - Playable blackjack CLI game
 - Input checking
 - **Real simulated 52 card deck that makes card counting possible**
+- *Advanded blackjack features:* insurance, double down, ~~split~~
 
 ### Roadmap
 
-- [ ] Advanced Blackjack features like splitting, insurance, double-down etc.
+- [ ] Split hand
 - [ ] Save and load game
 
 ## Install
