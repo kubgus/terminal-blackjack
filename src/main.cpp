@@ -306,11 +306,12 @@ void start_round(int& balance, Deck& deck) {
         std::cout << std::endl;
 
         char action = in<char>(
-            colorize("What will you do? (h/s): ", MAGENTA),
-            [](char act) {
+            colorize("What will you do? (h/s/d): ", MAGENTA),
+            [balance, bet](char act) {
+                if (act == 'd') return balance > bet * 2;
                 return act == 'h' || act == 's';
             },
-            "You must either hit or stand!"
+            "You must either hit, stand, or double down with sufficient balance!"
         );
 
         std::cout << std::endl;
@@ -327,9 +328,15 @@ void start_round(int& balance, Deck& deck) {
                 std::cout << "You chose to stand on " << player_hand.to_value() << std::endl;
                 running = false;
                 break;
-            default:
-                std::cout << "Invalid action!" << std::endl;
-                break;
+            case 'd':
+                {
+                    bet *= 2;
+                    Card new_card = deck.draw();
+                    std::cout << "You doubled down and drew a " << new_card.to_string() << std::endl;
+                    player_hand.push(new_card);
+                    running = false;
+                    break;
+                }
         }
 
         std::cout << std::endl;
@@ -403,18 +410,8 @@ int main() {
     bool running = true;
     while (running) {
         start_round(balance, deck);
-
-        std::cout << std::endl;
-
-        char action = in<char>(colorize("Play again? (y/n):", MAGENTA));
-
-        switch (tolower(action)) {
-            case'y':
-            default:
-                break;
-            case 'n':
-                running = false;
-        }
-
+        std::cout
+            << std::endl
+            << colorize("Hint: Press Ctrl+C to exit anytime.", CYAN) << std::endl;
     }
 }
