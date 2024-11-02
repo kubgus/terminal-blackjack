@@ -7,6 +7,10 @@
 
 // Simple terminal blackjack game
 
+const int WINNING_HAND_VALUE = 21;
+
+std::string player_name = "Player";
+
 enum Color {
     RED,
     GREEN,
@@ -14,11 +18,10 @@ enum Color {
     YELLOW,
     CYAN,
     MAGENTA,
-    RESET  // Used to reset to default terminal color
+    RESET
 };
 
-// Function to convert Color enum to corresponding ANSI code
-std::string color(Color color) {
+inline std::string ansi_color(Color color) {
     switch (color) {
         case RED:     return "\033[31m";
         case GREEN:   return "\033[32m";
@@ -31,27 +34,31 @@ std::string color(Color color) {
     }
 }
 
-const int WINNING_HAND_VALUE = 21;
+inline std::string colorize(std::string text, Color color) {
+    return ansi_color(color) + text + ansi_color(RESET);
+}
 
 enum Suit {
-    Clubs, Diamonds, Hearts, Spades
+    Spades, Clubs,
+    Diamonds, Hearts
 };
 
 const int SUIT_COUNT = 4;
 const Suit SUITS[SUIT_COUNT] = {
-    Clubs, Diamonds, Hearts, Spades
+    Spades, Clubs,
+    Diamonds, Hearts
 };
 
 std::string suit_to_string(Suit suit) {
     switch (suit) {
-        case Clubs:
-            return color(CYAN) + "♣" + color(RESET);
-        case Diamonds:
-            return color(RED) + "♦" + color(RESET);
-        case Hearts:
-            return color(RED) + "♥" + color(RESET);
         case Spades:
-            return color(CYAN) + "♠" + color(RESET);
+            return colorize("♠", CYAN);
+        case Clubs:
+            return colorize("♣", CYAN);
+        case Diamonds:
+            return colorize("♦", RED);
+        case Hearts:
+            return colorize("♥", RED);
         default:
             return "?";
     }
@@ -137,40 +144,61 @@ struct Card {
         return suit_to_string(suit) + rank_to_string(rank);
     }
 };
-using Hand = std::vector<Card>;
 
+struct Hand {
+    std::string owner_name = "Player";
+    std::vector<Card> cards;
 
-std::string hand_to_string(Hand hand, int limit = -1) {
-    std::string buffer;
-    for (
-            int i = 0;
-            i < hand.size() && (limit < 0 || i < limit);
-            i++
-        ) {
-        Card card = hand[i];
-        if (i > 0) buffer += ", ";
-        buffer += card.to_string();
+    inline void push(Card card) { cards.push_back(card); }
+    inline void push(std::vector<Card> card_vec) {
+        for (Card card : card_vec) cards.push_back(card);
     }
-    return buffer;
-}
 
-int hand_to_value(Hand hand) {
-    int value = 0;
-    for (Card card : hand) {
-        int card_value = rank_to_value(card.rank);
-        if (card.rank == A && value + card_value > WINNING_HAND_VALUE) card_value = 1;
-        value += card_value;
+    std::string to_string(int limit = -1) const {
+        std::string buffer;
+        for (int i = 0; i < cards.size(); i++) {
+            Card card = cards[i];
+            if (i > 0) buffer += ", ";
+            if (limit < 0 || i < limit) buffer += card.to_string();
+            else buffer += "??";
+        }
+        return buffer;
     }
-    return value;
-}
 
-void print_hand(Hand hand) {
+    int to_value() const {
+        int value = 0;
+        for (Card card : cards) {
+            int card_value = rank_to_value(card.rank);
+            if (card.rank == A && value + card_value > WINNING_HAND_VALUE) card_value = 1;
+            value += card_value;
+        }
+        return value;
+    }
+
+    inline void print(int limit = -1) const {
         std::cout
-            << hand_to_string(hand)
-            << " = "
-            << hand_to_value(hand)
-            << std::endl;
-}
+            << owner_name << "'s hand: " << std::endl
+            << to_string(limit);
+        if (limit < 0) std::cout << " = " << to_value();
+        std::cout << std::endl;
+    }
+
+    inline bool is_blackjack() const {
+        return to_value() == WINNING_HAND_VALUE;
+    }
+
+    inline bool is_busted() const {
+        return to_value() > WINNING_HAND_VALUE;
+    }
+
+    inline bool should_end() const {
+        return is_blackjack() || is_busted();
+    }
+
+    inline int win_diff() const {
+        return WINNING_HAND_VALUE - to_value();
+    }
+};
 
 const int DECK_SIZE = SUIT_COUNT * RANK_COUNT;
 class Deck {
@@ -202,7 +230,7 @@ public:
         if (_draw_index >= DECK_SIZE) {
             _draw_index = 0;
             std::cout << std::endl;
-            std::cout << color(CYAN) << "Shuffling cards..." << color(RESET) << std::endl;
+            std::cout << colorize("Shuffling cards...", CYAN) << std::endl;
             std::cout << std::endl;
         }
 
@@ -210,20 +238,28 @@ public:
         _draw_index++;
         return card;
     }
+
+    std::vector<Card> draw(int count) {
+        std::vector<Card> result;
+        for (int i = 0; i < count; i++) {
+            result.push_back(draw());
+        }
+        return result;
+    }
 private:
     int _draw_index = 0;
 };
 
 void start_round(int& balance, Deck& deck) {
     std::cout << std::endl;
-    std::cout << color(YELLOW) << "Current balance: " << color(RESET) << balance << std::endl;
+    std::cout << colorize("Current balance: ", YELLOW) << balance << std::endl;
 
     int bet;
-    std::cout << color(MAGENTA) +  "Place bet: " + color(RESET);
+    std::cout << colorize("Place bet: ", MAGENTA);
     std::cin >> bet;
 
-    if (bet <= 0) {
-        std::cout << "Don't even try... 😒" << std::endl;
+    if (bet < 1) {
+        std::cout << "Minimum bet is 1" << std::endl;
         return;
     }
 
@@ -232,37 +268,24 @@ void start_round(int& balance, Deck& deck) {
         return;
     }
 
-    Hand dealer_hand = {
-        deck.draw(), deck.draw()
-    };
+    Hand dealer_hand = { "Dealer", deck.draw(2) };
+    Hand player_hand = { player_name, deck.draw(2) };
 
-    Hand player_hand = {
-        deck.draw(), deck.draw()
-    };
+    std::cout << std::endl;
 
     bool running = true;
     while (running) {
-        std::cout << std::endl;
-
-        std::cout
-            << "Dealer's hand: "
-            << std::endl
-            << dealer_hand[0].to_string()
-            << ", ??"
-            << std::endl;
-
-        std::cout << "Your hand: " << std::endl;
-        print_hand(player_hand);
-
-        if (hand_to_value(player_hand) == WINNING_HAND_VALUE) {
+        if (player_hand.should_end()) {
             running = false;
-            continue;
+            break;
         }
 
-        std::cout
-            << color(MAGENTA)
-            << "What will you do? (h/s): "
-            << color(RESET);
+        dealer_hand.print(1);
+        player_hand.print();
+
+        std::cout << std::endl;
+
+        std::cout << colorize("What will you do? (h/s): ", MAGENTA);
         char action;
         std::cin >> action;
 
@@ -273,84 +296,77 @@ void start_round(int& balance, Deck& deck) {
                 {
                     Card new_card = deck.draw();
                     std::cout << "You drew a " << new_card.to_string() << std::endl;
-                    player_hand.push_back(new_card);
-                    if (hand_to_value(player_hand) >= WINNING_HAND_VALUE) {
-                        running = false;
-                    }
-                    continue;
+                    player_hand.push(new_card);
+                    break;
                 }
             case 's':
-                std::cout << "You chose to stand on " << hand_to_value(player_hand) << std::endl;
+                std::cout << "You chose to stand on " << player_hand.to_value() << std::endl;
                 running = false;
-                continue;
+                break;
             default:
-                std::cout << "Invalid choice!" << std::endl;
-                continue;
+                std::cout << "Invalid action!" << std::endl;
+                break;
         }
+
+        std::cout << std::endl;
     }
 
-    std::cout << std::endl;
+    if (player_hand.should_end()) {
+        dealer_hand.print();
+        player_hand.print();
 
-    int player_hand_value = hand_to_value(player_hand);
-    int player_win_diff = WINNING_HAND_VALUE - player_hand_value;
-
-    if (player_win_diff <= 0) {
-        std::cout << "Dealer's hand: " << std::endl;
-        print_hand(dealer_hand);
-
-        std::cout << "Your hand: " << std::endl;
-        print_hand(player_hand);
-
-        if (player_win_diff < 0) {
-            std::cout << color(RED) << "You busted!" << color(RESET) << std::endl;
-            balance -= bet;
-            return;
-        }
-
-        if (player_win_diff == 0) {
-            std::cout << color(GREEN) << "You got a blackjack!" << color(RESET) << std::endl;
+        if (player_hand.is_blackjack()) {
+            std::cout << colorize("You got a blackjack!", GREEN) << std::endl;
             balance += bet;
             return;
         }
+
+        if (player_hand.is_busted()) {
+            std::cout << colorize("You busted!", RED) << std::endl;
+            balance -= bet;
+            return;
+        }
     }
 
-    while (hand_to_value(dealer_hand) < 17) {
-        dealer_hand.push_back(deck.draw());
+    while (dealer_hand.to_value() < 17) {
+        dealer_hand.push(deck.draw());
     }
 
-    std::cout << "Dealer's hand: " << std::endl;
-    print_hand(dealer_hand);
+    dealer_hand.print();
+    player_hand.print();
 
-    std::cout << "Your hand: " << std::endl;
-    print_hand(player_hand);
-
-    int dealer_hand_value = hand_to_value(dealer_hand);
-    int dealer_win_diff = WINNING_HAND_VALUE - dealer_hand_value;
-
-    if (dealer_win_diff < 0) {
-        std::cout << color(GREEN) << "Dealer busted! You win!" << color(RESET) << std::endl;
+    if (dealer_hand.is_busted()) {
+        std::cout << colorize("Dealer busted! You win!", GREEN) << std::endl;
         balance += bet;
         return;
     }
 
-    if (player_win_diff < dealer_win_diff) {
-        std::cout << color(GREEN) << "You win!" << color(RESET) << std::endl;
-        balance += bet;
+    int dealer_win_diff = dealer_hand.win_diff();
+    int player_win_diff = player_hand.win_diff();
+
+    if (dealer_win_diff < player_win_diff) {
+        std::cout << colorize("You lose!", RED) << std::endl;
+        balance -= bet;
         return;
     }
 
-    if (player_win_diff == dealer_win_diff) {
-        std::cout << color(MAGENTA) << "It's a tie!" << color(RESET) << std::endl;
+    if (dealer_win_diff == player_win_diff) {
+        std::cout << colorize("It's a tie!", MAGENTA) << std::endl;
         return;
     }
 
-    std::cout << color(RED) << "You lose!" << color(RESET) << std::endl;
-    balance -= bet;
+    std::cout << colorize("You win!", GREEN) << std::endl;
+    balance += bet;
 }
 
 int main() {
+    // std::cout << colorize("Player name: ", MAGENTA);
+    // std::cin >> player_name;
+    player_name = getenv("USER");
+    player_name[0] = toupper(player_name[0]); // capitalize first letter
+
     int balance;
-    std::cout << color(YELLOW) << "Starting balance: " << color(RESET);
+    std::cout << colorize("Starting balance: ", YELLOW);
     std::cin >> balance;
 
     Deck deck;
@@ -361,7 +377,7 @@ int main() {
         start_round(balance, deck);
 
         std::cout << std::endl;
-        std::cout << color(BLUE) << "Play again? (y/n): " << color(RESET);
+        std::cout << colorize("Play again? (y/n): ", BLUE);
         char action;
         std::cin >> action;
 
