@@ -401,16 +401,6 @@ void start_round(int& balance, Deck& deck) {
        player_hand.print();
     }
 
-    if (purchased_insurance) {
-        if (payout_insurance) {
-            std::cout << colorize("Dealer got a blackjack! You won the insurance!", GREEN) << std::endl;
-            transaction(balance, bet * 0.5, 2);
-        } else {
-            std::cout << colorize("You lost the insurance!", RED) << std::endl;
-        }
-        std::cout << std::endl;
-    }
-
     if (natural_21) {
         std::cout << std::endl;
         if (dealer_hand.is_blackjack()) {
@@ -418,50 +408,49 @@ void start_round(int& balance, Deck& deck) {
             player_hand.print();
             std::cout << colorize("Both players got a blackjack! It's a tie!", CYAN) << std::endl;
             transaction(balance, bet);
-            return;
+        } else {
+            dealer_hand.print(1);
+            player_hand.print();
+            std::cout << colorize("You got a blackjack! (3:2)", GREEN) << std::endl;
+            transaction(balance, bet, 2.5); // 1 + 3/2
         }
-        dealer_hand.print(1);
-        player_hand.print();
-        std::cout << colorize("You got a blackjack! (3:2)", GREEN) << std::endl;
-        transaction(balance, bet, 1.5);
-        return;
-    }
-
-    if (player_hand.is_busted()) {
+    } else if (player_hand.is_busted()) {
         std::cout << colorize("You busted!", RED) << std::endl;
-        return;
+    } else {
+        while (dealer_hand.to_value() < 17) {
+            dealer_hand.push(deck.draw());
+        }
+
+        std::cout << std::endl;
+        dealer_hand.print();
+        player_hand.print();
+
+        int dealer_win_diff = dealer_hand.win_diff();
+        int player_win_diff = player_hand.win_diff();
+
+        if (dealer_hand.is_busted()) {
+            std::cout << colorize("Dealer busted! You win!", GREEN) << std::endl;
+            transaction(balance, bet, 2);
+        } else if (dealer_win_diff < player_win_diff) {
+            std::cout << colorize("You lose!", RED) << std::endl;
+        } else if (dealer_win_diff == player_win_diff) {
+            std::cout << colorize("It's a tie!", MAGENTA) << std::endl;
+            transaction(balance, bet);
+        } else {
+            std::cout << colorize("You win!", GREEN) << std::endl;
+            transaction(balance, bet, 2);
+        }
     }
 
-    while (dealer_hand.to_value() < 17) {
-        dealer_hand.push(deck.draw());
+    if (purchased_insurance) {
+        if (payout_insurance) {
+            std::cout << colorize("Dealer got a blackjack! You won the insurance! (2:1)", GREEN) << std::endl;
+            transaction(balance, bet * 0.5, 3); // 1 + 2/1
+        } else {
+            std::cout << colorize("You lost the insurance!", RED) << std::endl;
+        }
     }
 
-    std::cout << std::endl;
-    dealer_hand.print();
-    player_hand.print();
-
-    if (dealer_hand.is_busted()) {
-        std::cout << colorize("Dealer busted! You win!", GREEN) << std::endl;
-        transaction(balance, bet, 2);
-        return;
-    }
-
-    int dealer_win_diff = dealer_hand.win_diff();
-    int player_win_diff = player_hand.win_diff();
-
-    if (dealer_win_diff < player_win_diff) {
-        std::cout << colorize("You lose!", RED) << std::endl;
-        return;
-    }
-
-    if (dealer_win_diff == player_win_diff) {
-        std::cout << colorize("It's a tie!", MAGENTA) << std::endl;
-        transaction(balance, bet);
-        return;
-    }
-
-    std::cout << colorize("You win!", GREEN) << std::endl;
-    transaction(balance, bet, 2);
 }
 
 int main() {
