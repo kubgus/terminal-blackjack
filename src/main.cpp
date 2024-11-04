@@ -42,7 +42,7 @@ inline std::string colorize(std::string text, Color color) {
 }
 
 template <typename T>
-T in(
+T take_validated_input(
     std::string prompt,
     std::function<bool(T)> validate = [](T){ return true; },
     std::string error_msg = "Unexpected input!"
@@ -307,7 +307,7 @@ void start_round(int& balance, Deck& deck) {
         << ")"
         << std::endl;
 
-    int bet = in<int>(
+    int bet = take_validated_input<int>(
         colorize("Place bet:", MAGENTA),
         [balance](int b) {
             return b > 0 && b <= balance;
@@ -330,7 +330,7 @@ void start_round(int& balance, Deck& deck) {
     bool payout_insurance = false;
     if (dealer_hand.cards[0].rank == A) {
         std::cout << std::endl;
-        char action = in<char>(
+        char action = take_validated_input<char>(
             colorize("Would you like to purchase insurance? (y/n):", MAGENTA),
             [&balance, bet](char act) {
                 if (act == 'y') return transaction(balance, -bet * 0.5);
@@ -360,7 +360,7 @@ void start_round(int& balance, Deck& deck) {
 
         std::cout << std::endl;
 
-        char action = in<char>(
+        char action = take_validated_input<char>(
             colorize("What will you do? (h/s/d):", MAGENTA),
             [balance, bet](char act) {
                 if (act == 'd') return balance >= bet * 2;
@@ -459,7 +459,7 @@ int main() {
     player_name = getenv("USER");
     player_name[0] = toupper(player_name[0]); // capitalize first letter
 
-    int balance = in<int>(
+    int balance = take_validated_input<int>(
         colorize("Starting balance:", YELLOW),
         [](int bal) {
             return bal > 0;
